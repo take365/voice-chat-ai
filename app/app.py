@@ -75,7 +75,7 @@ character_display_name = CHARACTER_NAME.capitalize()
 
 # Check for CUDA availability
 device = "cuda" if torch.cuda.is_available() else "cpu"
-
+print(f"device={device}")
 # Disable CuDNN explicitly - enable this if you get cudnn errors or change in xtts-v2/config.json
 # torch.backends.cudnn.enabled = False
 
@@ -86,20 +86,28 @@ FASTER_WHISPER_LOCAL = os.getenv("FASTER_WHISPER_LOCAL", "true").lower() == "tru
 whisper_model = None
 
 # Default model size (adjust as needed)
-model_size = "medium.en"
+#日本語使えないので暫定で調整
+#model_size = "medium.en"
+model_size = "medium"
+print(f"ルート２")
 
 if FASTER_WHISPER_LOCAL:
     try:
         print(f"Attempting to load Faster-Whisper on {device}...")
-        whisper_model = WhisperModel(model_size, device=device, compute_type="float16" if device == "cuda" else "int8")
-        print("Faster-Whisper initialized successfully.")
+        #float16演算が使えなかったので暫定で調整
+        #whisper_model = WhisperModel(model_size, device=device, compute_type="float16" if device == "cuda" else "int8")
+        #whisper_model = WhisperModel(model_size, device=device, compute_type="float32" if device == "cuda" else "int8")
+        whisper_model = WhisperModel(model_size, device=device)
+        print("Faster-Whisper initialized successfully. 2")
     except Exception as e:
         print(f"Error initializing Faster-Whisper on {device}: {e}")
         print("Falling back to CPU mode...")
 
         # Force CPU fallback
         device = "cpu"
-        model_size = "tiny.en"  # Use a smaller model for CPU performance
+        #日本語使えないので暫定で調整
+        #model_size = "tiny.en"  # Use a smaller model for CPU performance
+        model_size = "tiny"  
         whisper_model = WhisperModel(model_size, device="cpu", compute_type="int8")
         print("Faster-Whisper initialized on CPU successfully.")
 else:
@@ -352,7 +360,9 @@ async def process_and_play(prompt, audio_file_pth):
                 tts.tts,
                 text=prompt,
                 speaker_wav=current_audio_file,  # Use the updated current character audio
-                language="en",
+                #日本語使えないので暫定で調整
+                #language="en",
+                language="ja",
                 speed=float(os.getenv('VOICE_SPEED', '1.0'))
             )
                 src_path = os.path.join(output_dir, 'output.wav')
@@ -937,13 +947,19 @@ def transcribe_with_whisper(audio_file):
     if whisper_model is None:
         # Check for CUDA availability
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        
+        print(f"device1={device}")
+
+        #日本語使えないので暫定で調整
         # Default model size (adjust as needed)
-        model_size = "medium.en" if device == "cuda" else "tiny.en"
-        
+        #model_size = "medium.en" if device == "cuda" else "tiny.en"
+        model_size = "medium" if device == "cuda" else "tiny"
+
         try:
             print(f"Lazy-loading Faster-Whisper on {device}...")
-            whisper_model = WhisperModel(model_size, device=device, compute_type="float16" if device == "cuda" else "int8")
+            #float16演算が使えなかったので暫定で調整
+            #whisper_model = WhisperModel(model_size, device=device, compute_type="float16" if device == "cuda" else "int8")
+            #whisper_model = WhisperModel(model_size, device=device, compute_type="float32" if device == "cuda" else "int8")
+            whisper_model = WhisperModel(model_size, device=device)
             print("Faster-Whisper initialized successfully.")
         except Exception as e:
             print(f"Error initializing Faster-Whisper on {device}: {e}")
@@ -951,7 +967,9 @@ def transcribe_with_whisper(audio_file):
             
             # Force CPU fallback
             device = "cpu"
-            model_size = "tiny.en"
+            #日本語使えないので暫定で調整
+            #model_size = "tiny.en"
+            model_size = "tiny"
             whisper_model = WhisperModel(model_size, device="cpu", compute_type="int8")
             print("Faster-Whisper initialized on CPU successfully.")
     
@@ -1197,7 +1215,9 @@ async def generate_speech(text, temp_audio_path):
                     tts.tts,
                     text=text,
                     speaker_wav=character_audio_file,
-                    language="en",
+                    #日本語使えないので暫定で調整
+                    #language="en",
+                    language="ja",
                     speed=float(os.getenv('VOICE_SPEED', '1.0'))
                 )
                 sf.write(temp_audio_path, wav, tts.synthesizer.tts_config.audio["sample_rate"])

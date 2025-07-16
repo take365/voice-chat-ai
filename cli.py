@@ -81,12 +81,17 @@ FASTER_WHISPER_LOCAL = os.getenv("FASTER_WHISPER_LOCAL", "true").lower() == "tru
 whisper_model = None
 
 # Default model size (adjust as needed)
-model_size = "medium.en"
+#日本語使えないので暫定で調整
+#model_size = "medium.en"
+model_size = "medium"
 
 if FASTER_WHISPER_LOCAL:
     try:
         print(f"Attempting to load Faster-Whisper on {device}...")
-        whisper_model = WhisperModel(model_size, device=device, compute_type="float16" if device == "cuda" else "int8")
+        #whisper_model = WhisperModel(model_size, device=device, compute_type="float16" if device == "cuda" else "int8")
+        #float16演算が使えなかったので暫定で調整
+        #whisper_model = WhisperModel(model_size, device=device, compute_type="int8" if device == "cuda" else "int8")
+        whisper_model = WhisperModel(model_size, device=device)
         print("Faster-Whisper initialized successfully.")
     except Exception as e:
         print(f"Error initializing Faster-Whisper on {device}: {e}")
@@ -94,7 +99,8 @@ if FASTER_WHISPER_LOCAL:
 
         # Force CPU fallback
         device = "cpu"
-        model_size = "tiny.en"  # Use a smaller model for CPU performance
+        #日本語使えないので暫定で調整
+        model_size = "tiny"  # Use a smaller model for CPU performance
         whisper_model = WhisperModel(model_size, device="cpu", compute_type="int8")
         print("Faster-Whisper initialized on CPU successfully.")
 else:
@@ -219,7 +225,10 @@ def process_and_play(prompt, audio_file_pth):
                 wav = tts.tts(
                     text=prompt,
                     speaker_wav=audio_file_pth,  # For voice cloning
-                    language="en",
+                    #language="en",
+                    #暫定日本語対応                    
+                    #language="en",
+                    language="ja",
                     speed=float(VOICE_SPEED)
                 )
                 src_path = os.path.join(output_dir, 'output.wav')
@@ -963,7 +972,9 @@ def generate_speech(text, temp_audio_path):
                 wav = tts.tts(
                     text=text,
                     speaker_wav=character_audio_file,
-                    language="en",
+                    #暫定日本語対応                    
+                    #language="en",
+                    language="ja",
                     speed=float(VOICE_SPEED)
                 )
                 sf.write(temp_audio_path, wav, tts.synthesizer.tts_config.audio["sample_rate"])
