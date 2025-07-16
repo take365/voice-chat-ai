@@ -16,16 +16,9 @@ RUN apt-get update && apt-get install -y \
     portaudio19-dev \
     wget \
     curl \
-    pulseaudio \
-    libsdl2-dev \
-    dbus \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Install ffmpeg
-RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
-
-# Configure dbus
-RUN dbus-uuidgen > /etc/machine-id
 
 # Create a simple ALSA configuration - redirect to null device
 RUN mkdir -p /etc/alsa && \
@@ -41,7 +34,7 @@ ENV JACK_NO_START_SERVER=1
 ENV JACK_NO_AUDIO_RESERVATION=1
 
 # Copy only necessary files (EXCLUDING large checkpoint and XTTS-v2)
-COPY requirements_cpu.txt /app/requirements.txt
+COPY requirements_api_only.txt /app/requirements.txt
 COPY app /app/app
 COPY characters /app/characters
 COPY outputs /app/outputs

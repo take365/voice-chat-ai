@@ -1,7 +1,10 @@
 import os
 import asyncio
 import aiohttp
-import pyaudio
+try:
+    import pyaudio
+except ImportError:  # PyAudio is optional in API-only mode
+    pyaudio = None
 import wave
 import numpy as np
 import requests
@@ -10,15 +13,12 @@ import base64
 from PIL import ImageGrab
 from dotenv import load_dotenv
 from openai import OpenAI
-from faster_whisper import WhisperModel
-from TTS.api import TTS
 import soundfile as sf
 from textblob import TextBlob
 from pathlib import Path
 import anthropic
 import re
 import io
-import torch
 from pydub import AudioSegment
 from .shared import clients, get_current_character
 
@@ -73,14 +73,24 @@ else:
 # Capitalize the first letter of the character name
 character_display_name = CHARACTER_NAME.capitalize()
 
-# Check for CUDA availability
-device = "cuda" if torch.cuda.is_available() else "cpu"
+# Check if Faster Whisper should be loaded at startup
+FASTER_WHISPER_LOCAL = os.getenv("FASTER_WHISPER_LOCAL", "false").lower() == "true"
+
+# Conditionally import heavy libraries only when needed
+if FASTER_WHISPER_LOCAL:
+    from faster_whisper import WhisperModel
+if TTS_PROVIDER == 'xtts':
+    from TTS.api import TTS
+
+if FASTER_WHISPER_LOCAL or TTS_PROVIDER == 'xtts':
+    import torch
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+else:
+    torch = None
+    device = "cpu"
 
 # Disable CuDNN explicitly - enable this if you get cudnn errors or change in xtts-v2/config.json
 # torch.backends.cudnn.enabled = False
-
-# Check if Faster Whisper should be loaded at startup
-FASTER_WHISPER_LOCAL = os.getenv("FASTER_WHISPER_LOCAL", "true").lower() == "true"
 
 # Initialize whisper model as None to lazy load
 whisper_model = None

@@ -1,11 +1,12 @@
 import os
-import pyaudio
+try:
+    import pyaudio
+except ImportError:  # Optional in API-only mode
+    pyaudio = None
 import wave
 import numpy as np
 import aiohttp
 import tempfile
-import torch
-from faster_whisper import WhisperModel
 from dotenv import load_dotenv
 
 # ANSI escape codes for colors
@@ -25,7 +26,13 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DEBUG_AUDIO_LEVELS = os.getenv("DEBUG_AUDIO_LEVELS", "false").lower() == "true"
 
 # Check for local Faster Whisper setting
-FASTER_WHISPER_LOCAL = os.getenv("FASTER_WHISPER_LOCAL", "true").lower() == "true"
+FASTER_WHISPER_LOCAL = os.getenv("FASTER_WHISPER_LOCAL", "false").lower() == "true"
+
+if FASTER_WHISPER_LOCAL:
+    import torch
+    from faster_whisper import WhisperModel
+else:
+    torch = None
 
 # Initialize whisper model as None to lazy load
 whisper_model = None
@@ -38,7 +45,7 @@ def initialize_whisper_model():
         return whisper_model
         
     # Check for CUDA availability
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch and torch.cuda.is_available() else "cpu"
     
     # Default model size (adjust as needed)
     model_size = "medium.en"
