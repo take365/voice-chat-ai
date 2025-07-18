@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const micIcon = document.getElementById('mic-icon');
     const characterSelect = document.getElementById('character-select');
     const providerSelect = document.getElementById('provider-select');
+    const sttProviderSelect = document.getElementById('stt-provider-select');
     const ttsSelect = document.getElementById('tts-select');
     const openaiVoiceSelect = document.getElementById('openai-voice-select');
     const elevenLabsVoiceSelect = document.getElementById('elevenlabs-voice-select');
@@ -25,6 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let aiMessageQueue = [];
     let isAISpeaking = false;
+    let speechRecognizer = null;
 
     // Fetch and populate characters as soon as page loads
     fetchCharacters();
@@ -343,14 +345,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     startButton.addEventListener('click', function() {
-        const selectedCharacter = document.getElementById('character-select').value;
-        websocket.send(JSON.stringify({ action: "start", character: selectedCharacter }));
-        console.log("Start conversation message sent");
+        if (sttProviderSelect.value === 'webrtc') {
+            const selectedCharacter = document.getElementById('character-select').value;
+            websocket.send(JSON.stringify({ action: "start", character: selectedCharacter }));
+            console.log("Start conversation message sent");
+        }
     });
 
     stopButton.addEventListener('click', function() {
-        websocket.send(JSON.stringify({ action: "stop" }));
-        console.log("Stop conversation message sent");
+        if (sttProviderSelect.value === 'webrtc') {
+            websocket.send(JSON.stringify({ action: "stop" }));
+            console.log("Stop conversation message sent");
+        }
     });
 
     clearButton.addEventListener('click', async function() {
@@ -642,49 +648,84 @@ document.addEventListener("DOMContentLoaded", () => {
             voiceSelect.add(placeholderOption);
         });
 
-    // === Browser-based audio capture ===
+    // === Browser-based audio capture / Web Speech ===
     let mediaRecorder;
     let audioChunks = [];
 
-    async function startBrowserConversation() {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-        mediaRecorder.onstop = async () => {
-            const blob = new Blob(audioChunks, { type: 'audio/webm' });
-            audioChunks = [];
-            const formData = new FormData();
-            formData.append('file', blob, 'speech.webm');
-            const transRes = await fetch('/api/transcribe', { method: 'POST', body: formData });
-            const transData = await transRes.json();
-            if (transData.text) {
-                displayMessage('You: ' + transData.text);
-                const chatRes = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: transData.text })
-                });
-                const chatData = await chatRes.json();
+    function sendTextToServer(text) {
+        displayMessage('You: ' + text);
+        fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        })
+            .then(res => res.json())
+            .then(chatData => {
                 if (chatData.text) {
                     displayMessage(chatData.text);
-                    const synthRes = await fetch('/api/synthesize', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: chatData.text })
-                    });
-                    const audioBuffer = await synthRes.arrayBuffer();
+                    playTTS(chatData.text);
+                }
+            });
+    }
+
+    function playTTS(text) {
+        if (ttsSelect.value === 'webspeech') {
+            const utt = new SpeechSynthesisUtterance(text);
+            utt.lang = languageSelect.value === 'ja' ? 'ja-JP' : 'en-US';
+            window.speechSynthesis.speak(utt);
+        } else {
+            fetch('/api/synthesize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            })
+                .then(res => res.arrayBuffer())
+                .then(audioBuffer => {
                     const url = URL.createObjectURL(new Blob([audioBuffer], { type: 'audio/wav' }));
                     const audio = new Audio(url);
                     audio.play();
+                });
+        }
+    }
+
+    async function startBrowserConversation() {
+        if (sttProviderSelect.value === 'webspeech') {
+            speechRecognizer = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            speechRecognizer.lang = languageSelect.value === 'ja' ? 'ja-JP' : 'en-US';
+            speechRecognizer.interimResults = false;
+            speechRecognizer.onresult = e => {
+                const text = e.results[0][0].transcript;
+                sendTextToServer(text);
+            };
+            speechRecognizer.start();
+        } else {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.onstop = async () => {
+                const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                audioChunks = [];
+                const formData = new FormData();
+                formData.append('file', blob, 'speech.webm');
+                const transRes = await fetch('/api/transcribe', { method: 'POST', body: formData });
+                const transData = await transRes.json();
+                if (transData.text) {
+                    sendTextToServer(transData.text);
                 }
-            }
-        };
-        mediaRecorder.start();
+            };
+            mediaRecorder.start();
+        }
     }
 
     function stopBrowserConversation() {
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            mediaRecorder.stop();
+        if (sttProviderSelect.value === 'webspeech') {
+            if (speechRecognizer) {
+                speechRecognizer.stop();
+            }
+        } else {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
         }
     }
 

@@ -33,6 +33,7 @@ Get up and running fast with Voice Chat AI! 🔊
 
 - **Supports OpenAI, xAI, Anthropic or Ollama language models**: Choose the model that best fits your needs.
 - **Provides text-to-speech synthesis using XTTS or OpenAI TTS or ElevenLabs or Kokoro TTS**: Enjoy natural and expressive voices.
+- **Browser-based speech recognition and synthesis via Web Speech API**: Use your browser for local STT and TTS.
 - **Provides speech to speech using OpenAI Realtime API**: Have a real time conversation with AI characters, interrupt the AI and have instant responses.
 - **OpenAI Enhanced Mode TTS Model**: Uses emotions and prompts to make the AI more human like.
 - **Flexible transcription options**: Uses OpenAI transcription by default, with option to use Local Faster Whisper.

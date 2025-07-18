@@ -16,6 +16,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const modelSelect = document.getElementById('modelSelect');
     const ttsModelSelect = document.getElementById('ttsModelSelect');
     const transcriptionModelSelect = document.getElementById('transcriptionModelSelect');
+    const sttProviderSelect = document.getElementById('stt-provider-select');
+    const ttsProviderSelect = document.getElementById('tts-provider-select');
 
     // Default speed value (since we removed the speedSelect dropdown)
     const defaultSpeed = "1.0";
@@ -27,6 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // For message queue management (like the main page)
     let aiMessageQueue = [];
     let isAISpeaking = false;
+    let speechRecognizer = null;
     
     function connectWebSocket() {
         // Close existing connection if any
@@ -291,79 +294,76 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     startBtn.addEventListener('click', function() {
-        // Check if WebSocket is connected
-        if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-            displayMessage("Not connected to server. Attempting to reconnect...", "system-message");
-            connectWebSocket();
-            return;
+        if (sttProviderSelect.value === 'webrtc') {
+            // Check if WebSocket is connected
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                displayMessage("Not connected to server. Attempting to reconnect...", "system-message");
+                connectWebSocket();
+                return;
+            }
+
+            // Disable start button and enable stop button
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            hasStarted = true;
+
+            // Clear any previous state
+            micIcon.classList.remove('mic-on', 'mic-waiting', 'pulse-animation');
+            micIcon.classList.add('mic-off'); // Will be updated by the server
+
+            const settings = {
+                character: characterSelect.value,
+                voice: voiceSelect.value,
+                speed: defaultSpeed,
+                model: modelSelect.value,
+                ttsModel: ttsModelSelect.value,
+                transcriptionModel: transcriptionModelSelect.value
+            };
+
+            console.log("Starting enhanced conversation with settings:", settings);
+
+            fetch('/start_enhanced_conversation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Start conversation response:", data);
+                })
+                .catch(error => {
+                    console.error("Error starting conversation:", error);
+                    displayMessage("Error starting conversation. The server may be unresponsive.", "error-message");
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    hasStarted = false;
+                });
+        } else {
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            startWebSpeech();
         }
-        
-        // Disable start button and enable stop button
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-        hasStarted = true;
-        
-        // Clear any previous state
-        micIcon.classList.remove('mic-on', 'mic-waiting', 'pulse-animation');
-        micIcon.classList.add('mic-off'); // Will be updated by the server
-        
-        // Get all the selected settings
-        const settings = {
-            character: characterSelect.value,
-            voice: voiceSelect.value,
-            speed: defaultSpeed,
-            model: modelSelect.value,
-            ttsModel: ttsModelSelect.value,
-            transcriptionModel: transcriptionModelSelect.value
-        };
-        
-        // Don't display starting message - keep UI cleaner
-        console.log("Starting enhanced conversation with settings:", settings);
-        
-        // Send the start command with settings
-        fetch('/start_enhanced_conversation', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(settings)
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log("Start conversation response:", data);
-        })
-        .catch(error => {
-            console.error("Error starting conversation:", error);
-            displayMessage("Error starting conversation. The server may be unresponsive.", "error-message");
-            // Reset buttons on error
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
-            hasStarted = false;
-        });
     });
     
     stopBtn.addEventListener('click', function() {
-        // Disable stop button and enable start button
         stopBtn.disabled = true;
         startBtn.disabled = false;
-        
-        console.log("Stopping enhanced conversation");
-        
-        // Send the stop command
-        fetch('/stop_enhanced_conversation', {
-            method: 'POST'
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log("Stop conversation response:", data);
-            hasStarted = false;
-        })
-        .catch(error => {
-            console.error("Error stopping conversation:", error);
-            displayMessage("Error stopping conversation. The server may be unresponsive.", "error-message");
-            // Still enable start button even if error
-            startBtn.disabled = false;
-        });
+
+        if (sttProviderSelect.value === 'webrtc') {
+            console.log("Stopping enhanced conversation");
+            fetch('/stop_enhanced_conversation', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Stop conversation response:", data);
+                    hasStarted = false;
+                })
+                .catch(error => {
+                    console.error("Error stopping conversation:", error);
+                    displayMessage("Error stopping conversation. The server may be unresponsive.", "error-message");
+                });
+        } else {
+            stopWebSpeech();
+        }
     });
     
     clearBtn.addEventListener('click', function() {
@@ -618,6 +618,59 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchCharacters();
     fetchDefaultSettings();
     connectWebSocket();
+
+    function sendTextToServer(text) {
+        displayMessage(`You: ${text}`);
+        fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.text) {
+                    displayMessage(data.text);
+                    playTTS(data.text);
+                }
+            });
+    }
+
+    function playTTS(text) {
+        if (ttsProviderSelect.value === 'webspeech') {
+            const utt = new SpeechSynthesisUtterance(text);
+            utt.lang = 'en-US';
+            window.speechSynthesis.speak(utt);
+        } else {
+            fetch('/api/synthesize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            })
+                .then(res => res.arrayBuffer())
+                .then(buf => {
+                    const url = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+                    new Audio(url).play();
+                });
+        }
+    }
+
+    function startWebSpeech() {
+        speechRecognizer = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        speechRecognizer.lang = 'en-US';
+        speechRecognizer.interimResults = false;
+        speechRecognizer.onresult = e => {
+            const text = e.results[0][0].transcript;
+            sendTextToServer(text);
+        };
+        speechRecognizer.start();
+    }
+
+    function stopWebSpeech() {
+        if (speechRecognizer) {
+            speechRecognizer.stop();
+        }
+    }
+
     startHeartbeat();
     stopBtn.disabled = true;
 });
