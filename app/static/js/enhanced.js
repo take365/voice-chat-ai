@@ -16,8 +16,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const modelSelect = document.getElementById('modelSelect');
     const ttsModelSelect = document.getElementById('ttsModelSelect');
     const transcriptionModelSelect = document.getElementById('transcriptionModelSelect');
-    const sttProviderSelect = document.getElementById('stt-provider-select');
-    const ttsProviderSelect = document.getElementById('tts-provider-select');
 
     // Default speed value (since we removed the speedSelect dropdown)
     const defaultSpeed = "1.0";
@@ -137,6 +135,15 @@ document.addEventListener("DOMContentLoaded", () => {
             } else if (data.action === "connected") {
                 console.log("WebSocket connection confirmed by server");
             } else if (data.message) {
+                // WebSpeech API モードならサーバーTTSをスキップしてブラウザ再生
+                if (ttsModelSelect.value === 'webspeech') {
+                    console.log('[DEBUG] Web Speech API で音声生成:', data.message);
+                    const utt = new SpeechSynthesisUtterance(data.message);
+                    utt.lang = 'ja-JP';
+                    window.speechSynthesis.speak(utt);
+                    return;
+                }
+
                 if (data.message.startsWith("You:")) {
                     // User messages are displayed immediately
                     displayMessage(data.message);
@@ -294,7 +301,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     startBtn.addEventListener('click', function() {
-        if (sttProviderSelect.value === 'webrtc') {
+        const sttMode = transcriptionModelSelect.value;
+        const ttsMode = ttsModelSelect.value;
+        // Web Speech API をどちらか一方でも選択していたら全部ブラウザ完結
+        if (sttMode === 'webspeech' || ttsMode === 'webspeech') {
+            console.log('[DEBUG] ブラウザ完結モード startBrowserSpeech()', sttMode, ttsMode);
+            //startBrowserSpeech();
+            startWebSpeech(); 
+            return;
+        }
+        if (mode !== 'webspeech') { 
             // Check if WebSocket is connected
             if (!websocket || websocket.readyState !== WebSocket.OPEN) {
                 displayMessage("Not connected to server. Attempting to reconnect...", "system-message");
@@ -341,7 +357,8 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             startBtn.disabled = true;
             stopBtn.disabled = false;
-            startWebSpeech();
+            //startBrowserSpeech();  // Web Speech API 用の起動関数
+            stopWebSpeech();
         }
     });
     
@@ -523,6 +540,8 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Character selection change handler
     characterSelect.addEventListener('change', function() {
+        console.log('[DEBUG] change イベント発火');
+        console.log('[DEBUG] 選択キャラクター:', this.value);
         const selectedCharacter = this.value;
         console.log(`Character selected: ${selectedCharacter}`);
         
@@ -620,23 +639,42 @@ document.addEventListener("DOMContentLoaded", () => {
     connectWebSocket();
 
     function sendTextToServer(text) {
+        console.log('[TRACE] sendTextToServer:', {
+            sttMode: transcriptionModelSelect.value,
+            ttsMode: ttsModelSelect.value,
+            text
+        });
         displayMessage(`You: ${text}`);
+        // Web Speech API モードなら WebSocket 送信
+        if (transcriptionModelSelect.value === 'webspeech') {
+          console.log('[DEBUG] send via WebSocket:', text);
+          websocket.send(JSON.stringify({ action: "user_message", text }));
+          return;
+        }
         fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text })
         })
-            .then(res => res.json())
+            .then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.json();
+            })
+
             .then(data => {
                 if (data.text) {
                     displayMessage(data.text);
                     playTTS(data.text);
                 }
+            })
+            .catch(err => {
+                console.error('[ERROR] sendTextToServer:', err);
+                displayMessage("通信エラーが発生しました", "error-message");
             });
     }
 
     function playTTS(text) {
-        if (ttsProviderSelect.value === 'webspeech') {
+        if (ttsModelSelect.value === 'webspeech') {
             const utt = new SpeechSynthesisUtterance(text);
             utt.lang = 'en-US';
             window.speechSynthesis.speak(utt);
@@ -655,15 +693,53 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function startWebSpeech() {
-        speechRecognizer = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        speechRecognizer.lang = 'en-US';
-        speechRecognizer.interimResults = false;
+        console.log('[DEBUG] startWebSpeech() called');
+        // Fallback 対応
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        speechRecognizer = new SpeechRec();
+        
+        // --- 追加設定 ---
+        speechRecognizer.continuous = true;      // 連続認識モード
+        speechRecognizer.interimResults = true;  // 中間結果も取得
+        
+        // 言語設定（例：言語Selectと連動）
+        const lang = languageSelect.value === 'ja' ? 'ja-JP' : 'en-US';
+        console.log('[DEBUG] speechRecognizer.lang =', lang);
+        speechRecognizer.lang = lang;
+
         speechRecognizer.onresult = e => {
-            const text = e.results[0][0].transcript;
-            sendTextToServer(text);
+            let finalTranscript = '';
+            let interimTranscript = '';
+
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+            const t = e.results[i][0].transcript;
+            if (e.results[i].isFinal) {
+                finalTranscript += t;
+            } else {
+                interimTranscript += t;
+            }
+            }
+
+            if (finalTranscript) {
+            console.log('[DEBUG] onresult final:', finalTranscript);
+            sendTextToServer(finalTranscript.trim());
+            }
+            // （必要なら interim をリアルタイム表示）
+            // console.log('[DEBUG] onresult interim:', interimTranscript);
         };
+
+        speechRecognizer.onend = () => {
+            console.log('[DEBUG] recognition ended, restarting…');
+            speechRecognizer.start();
+        };
+
+        speechRecognizer.onerror = err => {
+            console.error('[ERROR] speechRecognizer error:', err);
+        };
+
         speechRecognizer.start();
     }
+
 
     function stopWebSpeech() {
         if (speechRecognizer) {

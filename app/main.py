@@ -526,6 +526,12 @@ async def websocket_enhanced_endpoint(websocket: WebSocket):
         await websocket.send_json({"action": "connected"})
     except:
         pass
+    # ————————————————
+    # Enhanced 会話ループを別タスクで起動
+    from .enhanced_logic import start_enhanced_conversation
+    # 必要に応じて character, speed, model… を渡せます（ここではデフォルト設定で）
+    asyncio.create_task(start_enhanced_conversation())
+    # ————————————————
     
     try:
         # Process messages from the client

@@ -254,6 +254,13 @@
 
         <div class="settings">
             <div class="setting-group">
+                <label for="languageSelect">Language:</label>
+                <select id="languageSelect">
+                    <option value="en">English</option>
+                    <option value="ja">Japanese</option>
+                </select>
+            </div>
+            <div class="setting-group">
                 <label for="characterSelect">Character:</label>
                 <select id="characterSelect"></select>
             </div>
@@ -283,21 +290,6 @@
                     <option value="gpt-4">GPT-4</option>
                 </select>
             </div>
-            <div class="setting-group">
-                <label for="stt-provider-select">STT Provider:</label>
-                <select id="stt-provider-select">
-                    <option value="webrtc">WebRTC</option>
-                    <option value="webspeech">Web Speech API</option>
-                </select>
-            </div>
-            <div class="setting-group">
-                <label for="tts-provider-select">TTS Provider:</label>
-                <select id="tts-provider-select">
-                    <option value="xtts">XTTS</option>
-                    <option value="openai">OpenAI</option>
-                    <option value="webspeech">Web Speech API</option>
-                </select>
-            </div>
             
             <div class="setting-group">
                 <label for="ttsModelSelect">TTS Model:</label>
@@ -305,6 +297,7 @@
                     <option value="gpt-4o-mini-tts" selected>GPT-4o Mini TTS</option>
                     <option value="tts-1">TTS-1</option>
                     <option value="tts-1-hd">TTS-1 HD</option>
+                    <option value="webspeech">Web Speech API</option>
                 </select>
             </div>
             
@@ -314,6 +307,7 @@
                     <option value="gpt-4o-transcribe" selected>GPT-4o Transcribe</option>
                     <option value="gpt-4o-mini-transcribe">GPT-4o Mini Transcribe</option>
                     <option value="whisper-1">OpenAI Whisper-1</option>
+                    <option value="webspeech">Web Speech API</option>
                 </select>
             </div>
         </div>
