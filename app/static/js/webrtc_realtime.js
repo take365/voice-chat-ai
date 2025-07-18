@@ -15,6 +15,8 @@ document.addEventListener("DOMContentLoaded", function() {
     const sessionStatus = document.getElementById('session-status');
     const characterSelect = document.getElementById('character-select');
     const voiceSelect = document.getElementById('voice-select');
+    const transcriptionSelect = document.getElementById('transcription-select');
+    const ttsSelect = document.getElementById('tts-select');
     const userVoiceVisualization = document.getElementById('userVoiceVisualization');
     const aiVoiceVisualization = document.getElementById('aiVoiceVisualization');
     const waitingIndicator = document.getElementById('waitingIndicator');
@@ -27,6 +29,7 @@ document.addEventListener("DOMContentLoaded", function() {
     let isSessionActive = false;
     let ephemeralKey = null;
     let audioPlayer = new Audio();
+    let speechRecognizer = null;
     
     // Set dark mode as default
     setDarkModeDefault();
@@ -265,9 +268,59 @@ document.addEventListener("DOMContentLoaded", function() {
             debugLog("Transcript cleared", "info");
         }
     }
+
+    // Wrapper to start session based on transcription mode
+    async function startSession() {
+        const mode = transcriptionSelect ? transcriptionSelect.value : 'webrtc';
+        if (mode === 'webspeech') {
+            startWebSpeechSession();
+        } else {
+            await startWebRtcSession();
+        }
+    }
+
+    // Start session using Web Speech API
+    function startWebSpeechSession() {
+        isSessionActive = true;
+        sessionStatus.textContent = 'Active';
+        sessionStatus.classList.remove('badge-secondary', 'badge-warning', 'badge-danger');
+        sessionStatus.classList.add('badge-success');
+        startButton.disabled = true;
+        stopButton.disabled = false;
+        micButton.disabled = false;
+        addTranscriptMessage('Web Speech session started', 'system');
+        updateHeaderMicIcon(false);
+        toggleMicrophone();
+    }
+
+    async function sendUserTextToServer(text) {
+        addTranscriptMessage(text, 'user');
+        showWaitingIndicator(true);
+        try {
+            const chatRes = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            const chatData = await chatRes.json();
+            if (chatData.text) {
+                addTranscriptMessage(chatData.text, 'ai');
+                if (ttsSelect && ttsSelect.value === 'webspeech') {
+                    const utt = new SpeechSynthesisUtterance(chatData.text);
+                    utt.lang = 'ja-JP';
+                    speechSynthesis.speak(utt);
+                }
+            }
+        } catch (error) {
+            console.error('Error sending text:', error);
+            addTranscriptMessage(`Error: ${error.message}`, 'error');
+        } finally {
+            showWaitingIndicator(false);
+        }
+    }
     
     // Start WebRTC session
-    async function startSession() {
+    async function startWebRtcSession() {
         try {
             console.log("Starting session...");
             // Update UI
@@ -873,7 +926,34 @@ document.addEventListener("DOMContentLoaded", function() {
             debugLog("Cannot use microphone: No active session", "error");
             return;
         }
-        
+
+        if (transcriptionSelect && transcriptionSelect.value === 'webspeech') {
+            if (!speechRecognizer) {
+                speechRecognizer = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+                speechRecognizer.lang = 'ja-JP';
+                speechRecognizer.interimResults = false;
+                speechRecognizer.onresult = e => {
+                    const text = e.results[0][0].transcript;
+                    sendUserTextToServer(text);
+                };
+                speechRecognizer.onend = () => {
+                    micButton.classList.remove('listening');
+                    micStatus.textContent = 'Click to speak';
+                    micStatus.style.color = '';
+                    updateHeaderMicIcon(false);
+                    speechRecognizer = null;
+                };
+                micButton.classList.add('listening');
+                micStatus.textContent = 'Listening... (speak now)';
+                micStatus.style.color = '#ff3300';
+                updateHeaderMicIcon(true);
+                speechRecognizer.start();
+            } else {
+                speechRecognizer.stop();
+            }
+            return;
+        }
+
         if (micStream) {
             // Toggle mic state
             const audioTracks = micStream.getAudioTracks();
@@ -935,6 +1015,11 @@ document.addEventListener("DOMContentLoaded", function() {
         if (dataChannel) {
             dataChannel.close();
             dataChannel = null;
+        }
+
+        if (speechRecognizer) {
+            try { speechRecognizer.stop(); } catch (e) {}
+            speechRecognizer = null;
         }
         
         if (peerConnection) {
@@ -1035,8 +1120,8 @@ document.addEventListener("DOMContentLoaded", function() {
         if (!micIcon) return;
         
         // Check if mic is currently enabled (via the central mic button)
-        const isMicEnabled = micStream && micStream.getAudioTracks().length > 0 && 
-                            micStream.getAudioTracks()[0].enabled;
+        const isMicEnabled = (micStream && micStream.getAudioTracks().length > 0 &&
+                            micStream.getAudioTracks()[0].enabled) || speechRecognizer;
         
         if (isActive && isMicEnabled) {
             // Speaking AND mic is enabled - make icon pulse red
