@@ -290,6 +290,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         console.log('[Enhanced] transData:', transData);
 
+        // ← ここで status と error をチェック
+        if (!transRes.ok || transData.error) {
+          console.error('[Enhanced] Transcription error:', transData.error || transRes.statusText);
+          // 会話部分に赤文字で表示
+          displayMessage(
+            transData.error || `Transcription failed: ${transRes.status} ${transRes.statusText}`,
+            'error-message'
+          );
+          // ボタンの状態を元に戻す
+          startBtn.disabled = false;
+          stopBtn.disabled  = true;
+          return;
+        }
+
         if (transData.text) {
           displayMessage('You: ' + transData.text);
 
