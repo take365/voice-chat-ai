@@ -29,6 +29,32 @@ Get up and running fast with Voice Chat AI! 🔊
 
 ![Ai-Speech](https://imagedelivery.net/WfhVb8dSNAAvdXUdMfBuPQ/ed0edfea-265d-4c23-d11d-0b5ba0f02d00/public)
 
+## Usage
+
+### Web UI
+
+Run the full application (web UI + API endpoints):
+
+```
+# 通常のUI付きサーバ起動
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### API-Only Lightweight Version
+
+UIを伴わない、APIサーバーのみを起動したい場合はこちらを利用します。クライアント実装や別のフロント先から呼び出す用途に便利です。
+
+```
+# 軽量版API専用サーバ起動
+uvicorn app.minimal_app:app --host 0.0.0.0 --port 8000 --reload
+```
+
+> Note: もともと app/app.py をメインモジュールとしていましたが、名前衝突を防ぐため app/app.py を app/server.py にリネームしました。
+> 
+> 
+> フルUI版は引き続き `app.main:app`、API専用版は `app.minimal_app:app` で提供しています。
+>
+
 ## Features
 
 - **Supports OpenAI, xAI, Anthropic or Ollama language models**: Choose the model that best fits your needs.

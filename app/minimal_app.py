@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Optional
+from fastapi.responses import JSONResponse
 
 # core.py 経由ではなく services/audio.py のラッパーを使用
 #from app.services.audio import transcribe_audio_bytes, generate_response_text, synthesize_text
@@ -55,11 +56,14 @@ async def api_transcribe(
     logger.info(f"[api_transcribe] Received {len(audio_bytes)} bytes, content_type={file.content_type}, model={model}")
     try:
         text = await transcribe_audio_bytes(audio_bytes, api_key, model=model)
-        logger.info(f"[api_transcribe] Transcription result: {text[:50]}...")
     except Exception as e:
         logger.error(f"[api_transcribe] Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(
+            status_code=502,
+            content={"error": "Transcription failed: " + str(e)}
+        )
     return {"text": text}
+
 
 @app.post("/api/chat")
 async def api_chat(
@@ -69,10 +73,13 @@ async def api_chat(
     logger.info(f"[api_chat] User text: {payload.text[:50]}...")
     try:
         response_text = await generate_response_text(payload.text, api_key)
-        logger.info(f"[api_chat] Response text: {response_text[:50]}...")
     except Exception as e:
         logger.error(f"[api_chat] Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Return a JSON error that the client can display
+        return JSONResponse(
+            status_code=502,
+            content={"error": "Chat failed: " + str(e)}
+        )
     return {"text": response_text}
 
 @app.post("/api/synthesize")
@@ -83,10 +90,12 @@ async def api_synthesize(
     logger.info(f"[api_synthesize] Synthesizing text: {payload.text[:50]}...")
     try:
         audio_bytes = await synthesize_text(payload.text, api_key)
-        logger.info(f"[api_synthesize] Audio bytes length: {len(audio_bytes)}")
     except Exception as e:
         logger.error(f"[api_synthesize] Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(
+            status_code=502,
+            content={"error": "TTS failed: " + str(e)}
+        )
     return Response(content=audio_bytes, media_type="audio/wav")
 
 # ─── Characters / Voices / Defaults ───────────────
