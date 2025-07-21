@@ -41,7 +41,7 @@ docker run -d --env-file .env --name voice-chat-ai -p 8000:8000 voice-chat-ai:la
      * 選択肢：
 
        * `whisper-1`: OpenAI Whisper-1
-       * `web-speech`: Web Speech API (クライアント)
+       * `web-speech`: Web Speech API (クライアント)。ブラウザ依存で無料で使えるAPI
      * 説明：録音した音声を文字起こしする方法を選択。
   4. **チャットモデル (LLM)** (`modelSelect`)
 
@@ -60,7 +60,7 @@ docker run -d --env-file .env --name voice-chat-ai -p 8000:8000 voice-chat-ai:la
        * `gpt-4o-mini-tts`: GPT-4o Mini TTS
        * `tts-1`: TTS-1
        * `tts-1-hd`: TTS-1 HD
-       * `web-speech`: Web Speech API (クライアント)
+       * `web-speech`: Web Speech API (クライアント)。ブラウザ依存で無料で使えるAPI
      * 説明：応答文を音声に合成する方法を選択。
   6. **ボイス** (`voiceSelect`)
 
