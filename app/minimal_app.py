@@ -122,10 +122,6 @@ async def set_character(payload: CharacterInput):
         raise HTTPException(status_code=400, detail=str(e))
     return {"character": get_current_character()}
 
-@app.get("/kokoro_voices")
-async def get_kokoro_voices():
-    return {"voices": []}
-
 @app.get("/enhanced_defaults")
 async def get_enhanced_defaults():
     return {
