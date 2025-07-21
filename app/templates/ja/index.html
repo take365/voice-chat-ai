@@ -62,6 +62,14 @@
         .header-controls #download-button {
             margin-top: 12px;
         }
+        .info-box {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 5px;
+        padding: 15px;
+        margin-top: 5px;
+        font-size: 0.9rem;
+        }
     </style>
 </head>
 <body class="dark-mode">
@@ -110,9 +118,9 @@
             </div>
         </div>
         <div class="controls">
-            <button id="start-conversation-btn">開始</button>
-            <button id="stop-conversation-btn">停止</button>
-            <button id="clear-conversation-btn">クリア</button>
+            <button id="start-conversation-btn" hidden>開始</button>
+            <button id="stop-conversation-btn" hidden>停止</button>
+            <button id="clear-conversation-btn" hidden>クリア</button>
         </div>
         <div class="settings">
             <div class="setting-group">
@@ -230,7 +238,40 @@
         </div>
     </main>
     <footer>
-        <p><a href="https://github.com/bigsk1/voice-chat-ai" target="_blank">GitHub Repository</a></p>
+        <!-- 説明・注意事項 -->
+        <aside
+        class="info-box"
+        style="
+            /* 親幅の90%、かつ最大900pxに制限 */
+            width: 95%;
+            max-width: 1000px;
+            /* 上下:2rem、左右:auto で中央寄せ */
+            margin: 2rem auto;
+            padding: 1rem;
+            border: 1px solid #666;
+            border-radius: 4px;
+            background: #1a1a1a;
+            color: #ccc;
+            text-align: left;
+        "
+        >
+            <h4>機能紹介・注意事項</h4>
+            <ul>
+            <li>本機能は  
+                <a href="https://github.com/bigsk1/voice-chat-ai" target="_blank">bigsk1/voice-chat-ai</a>  
+                をベースに、日本語化および公開用調整を加えた非公式拡張版  
+                (<a href="https://github.com/take365/voice-chat-ai" target="_blank">take365/voice-chat-ai</a>) です。</li>
+            <li>このダッシュボード画面では音声チャット機能は利用できません。上のメニューから  
+                <strong>Enhanced</strong>、<strong>Realtime</strong>、<strong>Voice Test</strong>  
+                にお進みください。</li>
+            <li>OpenAI API 以外の機能を利用したい場合は、  
+                GitHub をクローンしてローカルで起動してください。</li>
+            <li>— 本家：  
+                <a href="https://github.com/bigsk1/voice-chat-ai" target="_blank">bigsk1/voice-chat-ai</a> ／  
+                非公式拡張版：  
+                <a href="https://github.com/take365/voice-chat-ai" target="_blank">take365/voice-chat-ai</a></li>
+            </ul>
+        </aside>
     </footer>
     <script src="/app/static/js/scripts.js"></script>
     <script>
